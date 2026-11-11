@@ -7,6 +7,9 @@ spring:
   flyway:
     enabled: true
 
+llm:
+  mode: rules
+
 logging:
   level:
     com.example.procurement: INFO

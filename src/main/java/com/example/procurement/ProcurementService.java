@@ -16,19 +16,20 @@ public class ProcurementService {
 
   private static final DateTimeFormatter DATE = DateTimeFormatter.BASIC_ISO_DATE;
 
-  private final DemandParser parser;
+  private final DemandExtractor demandExtractor;
   private final CatalogMapper catalog;
   private final RequestMapper requests;
 
-  public ProcurementService(DemandParser parser, CatalogMapper catalog, RequestMapper requests) {
-    this.parser = parser;
+  public ProcurementService(
+      DemandExtractor demandExtractor, CatalogMapper catalog, RequestMapper requests) {
+    this.demandExtractor = demandExtractor;
     this.catalog = catalog;
     this.requests = requests;
   }
 
   @Transactional
   public ApiModels.AnalysisResponse analyze(String text) {
-    Demand demand = parser.parse(text);
+    Demand demand = demandExtractor.extract(text);
     List<ApiModels.ItemCandidates> results = new ArrayList<>();
     BigDecimal requestTotal = BigDecimal.ZERO;
 

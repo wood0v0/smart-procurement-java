@@ -87,7 +87,7 @@ mvn test
 
 - 角色通过 `X-Role` 请求头模拟，未接 SSO/真实用户体系。
 - 商品/报价为演示数据，未接真实供应商或 ERP。
-- 未接 LLM，需求解析为规则实现；后续可替换为模型抽取。
+- 默认使用规则解析；配置 `LLM_MODE=deepseek` + `DEEPSEEK_API_KEY` 后走 DeepSeek，失败自动回退规则。
 
 ## Spring Cloud 模块
 
@@ -97,4 +97,25 @@ mvn test
 - Spring Cloud Gateway（8081），把 `/api/**` 转发到采购后端（8080）
 
 启动方式和验证命令见 [cloud/README.md](cloud/README.md)。
+
+## LLM 需求抽取（可选）
+
+默认 `LLM_MODE=rules`，不依赖任何外部服务。
+
+配置后启用 DeepSeek：
+
+```bash
+export LLM_MODE=deepseek
+export DEEPSEEK_API_KEY=sk-...
+# 可选：LLM_BASE_URL、LLM_MODEL、LLM_TIMEOUT_SECONDS
+mvn spring-boot:run
+```
+
+流程：
+
+1. 模型输出 JSON `items[]`；
+2. 校验品类、数量、预算；
+3. 超时、非 JSON、字段非法时自动回退规则解析。
+
+这样测试和本地开发不依赖 API Key，演示时再开 LLM。
 
