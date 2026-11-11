@@ -3,20 +3,21 @@
 给采购后端加的最小 Spring Cloud 演示：
 
 - `eureka-server`：服务注册中心，端口 `8761`
-- `api-gateway`：Spring Cloud Gateway，端口 `8081`，把 `/api/**` 转发到 `http://localhost:8080`
+- `api-gateway`：Spring Cloud Gateway，端口 `8081`，通过 `lb://procurement-backend` 负载均衡到采购后端
+- 采购后端设置 `EUREKA_ENABLED=true` 后注册为 `procurement-backend`
 
 ## 启动顺序
 
 ```bash
-# 1. 启动采购后端（端口 8080）
+# 1. 启动采购后端（8080，注册到 Eureka）
 cd ..
-mvn spring-boot:run
+EUREKA_ENABLED=true mvn spring-boot:run
 
-# 2. 启动 Eureka（端口 8761）
+# 2. 启动 Eureka（8761）
 cd cloud/eureka-server
 mvn spring-boot:run
 
-# 3. 启动网关（端口 8081）
+# 3. 启动网关（8081）
 cd cloud/api-gateway
 mvn spring-boot:run
 ```
@@ -35,6 +36,6 @@ curl -X POST http://localhost:8081/api/v1/procurement/analyze \
 
 ## 说明
 
-- 网关目前用静态 URI 指向本地后端，便于单机演示。
-- 如果要把采购后端注册到 Eureka，可在后端加入 `spring-cloud-starter-netflix-eureka-client`，并把网关路由改成 `lb://procurement-backend`。
-- 这是作品集用的最小模块，不是生产级网关（未做限流、鉴权、灰度）。
+- 网关通过 Eureka 的 `lb://procurement-backend` 路由，不再写死 `localhost:8080`。
+- 采购后端默认不注册；启动时加 `EUREKA_ENABLED=true`。
+- 这是作品集用的最小模块，不是生产级网关（未做限流、鉴权、灰度、熔断、配置中心）。

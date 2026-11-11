@@ -9,10 +9,11 @@
 ```mermaid
 flowchart LR
   C[Client / Swagger UI] -->|/api/**| G[Spring Cloud Gateway :8081]
-  G -->|静态路由| B[Procurement Backend :8080]
+  G -->|lb://procurement-backend| B[Procurement Backend :8080]
   B --> M[(MySQL 8 / H2 测试)]
   B -.可选.-> L[DeepSeek API]
-  E[Eureka Server :8761] -.服务注册演示.-> G
+  E[Eureka Server :8761] -.注册/发现.-> B
+  E -.注册/发现.-> G
   B --> P[需求解析<br/>LLM 或规则]
   P --> S[多供应商比价<br/>加权评分]
   S --> R[PR 创建]
@@ -121,7 +122,8 @@ mvn spring-boot:run
 `cloud/` 下提供一个可运行的 Spring Cloud 演示：
 
 - Eureka 服务注册中心（8761）
-- Spring Cloud Gateway（8081），把 `/api/**` 转发到采购后端（8080）
+- Spring Cloud Gateway（8081），通过 `lb://procurement-backend` 负载均衡到采购后端
+- 采购后端设置 `EUREKA_ENABLED=true` 后注册到 Eureka
 
 启动方式和验证命令见 [cloud/README.md](cloud/README.md)。
 
@@ -166,7 +168,7 @@ mvn test
 - **ERP**：没有真实 ERP 对接，只有 PR/PO 本地落库。
 - **审批**：只有单级审批接口，没有金额阈值、多级审批、审批链路配置。
 - **LLM**：可选且非默认；没有 token 计量、成本统计、模型输出审计；未用真实 Key 联调。
-- **Spring Cloud**：Gateway 使用静态 URI，Eureka 没有和采购后端真正注册/发现；没有配置中心、熔断、限流。
+- **Spring Cloud**：Gateway 已通过 Eureka + `lb://` 做服务发现与负载均衡；仍没有配置中心、熔断、限流。
 - **运维**：没有鉴权、限流、幂等、审计日志、指标监控、CI/CD、staging。
 - **并发**：PR/PO 编号依赖日期 + 数据库 id，没有高并发下的发号器与幂等保障。
 
