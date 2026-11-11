@@ -78,6 +78,45 @@ class ProcurementApiTest {
   }
 
   @Test
+  void idempotentApprovalAndAuditTrail() throws Exception {
+    MvcResult analyzed =
+        mvc.perform(
+                post("/api/v1/procurement/analyze")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content("{\"text\":\"采购 2 台联想笔记本，预算 10000\"}"))
+            .andExpect(status().isOk())
+            .andReturn();
+
+    long requestId =
+        objectMapper.readTree(analyzed.getResponse().getContentAsString()).path("request").path("id").asLong();
+    String body = "{\"approver\":\"王经理\",\"action\":\"APPROVE\",\"note\":\"同意\"}";
+
+    mvc.perform(
+            post("/api/v1/procurement/requests/" + requestId + "/approve")
+                .header("X-Role", "approver")
+                .header("Idempotency-Key", "approve-" + requestId)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(body))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.request.status").value("APPROVED"));
+
+    mvc.perform(
+            post("/api/v1/procurement/requests/" + requestId + "/approve")
+                .header("X-Role", "approver")
+                .header("Idempotency-Key", "approve-" + requestId)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(body))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.approvals.length()").value(1))
+        .andExpect(jsonPath("$.order.poNo").isNotEmpty());
+
+    mvc.perform(get("/api/v1/procurement/requests/" + requestId + "/audit"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$[0].action").value("ANALYZE"))
+        .andExpect(jsonPath("$[1].action").value("APPROVE"));
+  }
+
+  @Test
   void exposesOpenApiDocument() throws Exception {
     mvc.perform(get("/v3/api-docs"))
         .andExpect(status().isOk())

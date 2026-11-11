@@ -39,6 +39,8 @@ flowchart LR
 - 多供应商比价：价格、预算、交期、评分、库存加权打分
 - 采购申请 PR：`PR-yyyyMMdd-####`
 - 审批：`APPROVE` / `REJECT`，采购员越权返回 403
+- 审批幂等：支持 `Idempotency-Key`，重复提交返回同一结果
+- 审计：分析/审批动作写入 `audit_logs`，可按 PR 查询
 - 审批通过自动生成 PO：`PO-yyyyMMdd-####`
 - 报价有效期：过期报价不参与比价
 - 可选 LLM 抽取，失败自动回退规则
@@ -79,7 +81,8 @@ docker compose up -d --build
 | POST | `/api/v1/procurement/analyze` | 自然语言需求 → 比价 + PR |
 | GET | `/api/v1/procurement/requests` | PR 列表 |
 | GET | `/api/v1/procurement/requests/{id}` | PR 详情 |
-| POST | `/api/v1/procurement/requests/{id}/approve` | 审批（`X-Role: approver`） |
+| POST | `/api/v1/procurement/requests/{id}/approve` | 审批（`X-Role: approver`，可带 `Idempotency-Key`） |
+| GET | `/api/v1/procurement/requests/{id}/audit` | 审计记录 |
 | GET | `/api/v1/catalog/products?kind=laptop` | 商品目录 |
 | GET | `/api/v1/catalog/suppliers` | 供应商 |
 
@@ -95,6 +98,7 @@ curl -X POST http://localhost:8080/api/v1/procurement/analyze \
 curl -X POST http://localhost:8080/api/v1/procurement/requests/1/approve \
   -H 'Content-Type: application/json' \
   -H 'X-Role: approver' \
+  -H 'Idempotency-Key: approve-1' \
   -d '{"approver":"王经理","action":"APPROVE","note":"同意"}'
 ```
 
@@ -145,18 +149,26 @@ src/main/resources/db/migration     # Flyway
 cloud/                              # Eureka + Gateway
 ```
 
+## 审计与幂等
+
+- 分析、审批动作写入 `audit_logs`；
+- `GET /api/v1/procurement/requests/{id}/audit` 查看；
+- 审批可带 `Idempotency-Key`，重复请求返回同一 PR 详情，不重复创建审批/PO；
+- 同一个幂等键用于不同 PR 返回 409。
+
 ## 测试
 
 ```bash
 mvn test
 ```
 
-共 8 个测试：
+共 9 个测试：
 
 - 需求解析与错字纠正
 - LLM 关闭 / 无 Key 时回退规则
 - 分析 → PR → 审批 → PO 全流程
 - 采购员越权审批 403
+- 审批幂等与审计记录
 - OpenAPI 文档
 
 ## 局限与生产化差距
@@ -169,7 +181,7 @@ mvn test
 - **审批**：只有单级审批接口，没有金额阈值、多级审批、审批链路配置。
 - **LLM**：可选且非默认；没有 token 计量、成本统计、模型输出审计；未用真实 Key 联调。
 - **Spring Cloud**：Gateway 已通过 Eureka + `lb://` 做服务发现与负载均衡；仍没有配置中心、熔断、限流。
-- **运维**：没有鉴权、限流、幂等、审计日志、指标监控、CI/CD、staging。
+- **运维**：已有审计和审批幂等；仍没有鉴权、限流、指标监控、CI/CD、staging。
 - **并发**：PR/PO 编号依赖日期 + 数据库 id，没有高并发下的发号器与幂等保障。
 
 ### 生产化清单

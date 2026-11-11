@@ -25,8 +25,10 @@ public class ProcurementController {
   }
 
   @PostMapping("/analyze")
-  public AnalysisResponse analyze(@Valid @RequestBody AnalyzeRequest request) {
-    return service.analyze(request.text());
+  public AnalysisResponse analyze(
+      @RequestHeader(value = "X-Role", defaultValue = "purchaser") String role,
+      @Valid @RequestBody AnalyzeRequest request) {
+    return service.analyze(request.text(), role);
   }
 
   @GetMapping("/requests")
@@ -43,7 +45,14 @@ public class ProcurementController {
   public RequestDetail approve(
       @PathVariable Long id,
       @RequestHeader(value = "X-Role", defaultValue = "purchaser") String role,
+      @RequestHeader(value = "Idempotency-Key", required = false) String idempotencyKey,
       @Valid @RequestBody ApproveRequest request) {
-    return service.decide(id, request.approver(), request.action(), request.note(), role);
+    return service.decide(
+        id, request.approver(), request.action(), request.note(), role, idempotencyKey);
+  }
+
+  @GetMapping("/requests/{id}/audit")
+  public List<AuditLog> audit(@PathVariable Long id) {
+    return service.audit(id);
   }
 }

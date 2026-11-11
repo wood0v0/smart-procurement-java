@@ -19,16 +19,24 @@ public class ProcurementService {
   private final DemandExtractor demandExtractor;
   private final CatalogMapper catalog;
   private final RequestMapper requests;
+  private final AuditMapper audits;
+  private final IdempotencyMapper idempotency;
 
   public ProcurementService(
-      DemandExtractor demandExtractor, CatalogMapper catalog, RequestMapper requests) {
+      DemandExtractor demandExtractor,
+      CatalogMapper catalog,
+      RequestMapper requests,
+      AuditMapper audits,
+      IdempotencyMapper idempotency) {
     this.demandExtractor = demandExtractor;
     this.catalog = catalog;
     this.requests = requests;
+    this.audits = audits;
+    this.idempotency = idempotency;
   }
 
   @Transactional
-  public ApiModels.AnalysisResponse analyze(String text) {
+  public ApiModels.AnalysisResponse analyze(String text, String actor) {
     Demand demand = demandExtractor.extract(text);
     List<ApiModels.ItemCandidates> results = new ArrayList<>();
     BigDecimal requestTotal = BigDecimal.ZERO;
@@ -72,6 +80,7 @@ public class ProcurementService {
       result.selected().requestId = request.id;
       requests.insertItem(result.selected());
     }
+    audits.insert(request.id, "ANALYZE", actor, "items=" + results.size());
     return new ApiModels.AnalysisResponse(request, results);
   }
 
@@ -92,9 +101,24 @@ public class ProcurementService {
   }
 
   @Transactional
-  public ApiModels.RequestDetail decide(Long id, String approver, String action, String note, String role) {
+  public ApiModels.RequestDetail decide(
+      Long id,
+      String approver,
+      String action,
+      String note,
+      String role,
+      String idempotencyKey) {
     if (!"approver".equals(role) && !"director".equals(role)) {
       throw new ApiException(403, "只有审批人可以审批");
+    }
+    if (idempotencyKey != null && !idempotencyKey.isBlank()) {
+      Long existingRequest = idempotency.findRequestId(idempotencyKey);
+      if (existingRequest != null) {
+        if (!existingRequest.equals(id)) {
+          throw new ApiException(409, "幂等键已用于其他采购申请");
+        }
+        return detail(id);
+      }
     }
     PurchaseRequest request = requests.findRequestById(id);
     if (request == null) {
@@ -117,6 +141,10 @@ public class ProcurementService {
     requests.insertApproval(approval);
     requests.updateStatus(id, "APPROVE".equals(normalized) ? "APPROVED" : "REJECTED");
 
+    if (idempotencyKey != null && !idempotencyKey.isBlank()) {
+      idempotency.insert(idempotencyKey, id, normalized);
+    }
+
     if ("APPROVE".equals(normalized)) {
       List<RequestItem> items = requests.findItemsByRequest(id);
       PurchaseOrder order = new PurchaseOrder();
@@ -128,7 +156,12 @@ public class ProcurementService {
       order.status = "CREATED";
       requests.insertOrder(order);
     }
+    audits.insert(id, normalized, approver, note == null ? "" : note);
     return detail(id);
+  }
+
+  public List<AuditLog> audit(Long id) {
+    return audits.findByRequest(id);
   }
 
   private List<ApiModels.Candidate> toCandidates(List<QuoteView> quotes, Demand.Item item) {
