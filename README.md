@@ -88,3 +88,13 @@ mvn test
 - 角色通过 `X-Role` 请求头模拟，未接 SSO/真实用户体系。
 - 商品/报价为演示数据，未接真实供应商或 ERP。
 - 未接 LLM，需求解析为规则实现；后续可替换为模型抽取。
+
+## Spring Cloud 模块
+
+`cloud/` 下提供一个可运行的 Spring Cloud 演示：
+
+- Eureka 服务注册中心（8761）
+- Spring Cloud Gateway（8081），把 `/api/**` 转发到采购后端（8080）
+
+启动方式和验证命令见 [cloud/README.md](cloud/README.md)。
+
