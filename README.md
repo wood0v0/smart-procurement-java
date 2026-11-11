@@ -192,3 +192,18 @@ mvn test
 - 队列、限流、审计、指标、告警
 - MySQL 备份/恢复、CI/CD、压测
 - LLM 评测集、成本控制、输出校验与人工兜底
+
+## CI
+
+仓库里已准备 GitHub Actions 配置模板：[docs/github-actions-ci.yml](docs/github-actions-ci.yml)。
+
+复制到 `.github/workflows/ci.yml` 后，会执行：
+
+- `mvn -B verify`：后端测试 + 打包
+- `mvn -B -f cloud/pom.xml package`：Spring Cloud 模块打包
+
+当前推送 token 缺少 `workflow` scope，无法通过 CLI 直接创建 workflow 文件；可在 GitHub 网页添加，或执行：
+
+```bash
+gh auth refresh -h github.com -s workflow
+```
