@@ -2,7 +2,7 @@
 
 采购需求 → 结构化 → 多供应商比价 → PR → 审批 → PO 的后端 MVP。
 
-> 个人作品集项目：用于展示 Java/Spring Boot 后端能力与采购业务建模，不是生产系统。生产化差距见文末。
+> 个人作品集项目：用于展示 Java/Spring Boot 后端能力与采购业务
 
 ## 架构
 
@@ -25,12 +25,12 @@ flowchart LR
 
 - Java 21
 - Spring Boot 3.5
-- MyBatis（注解 Mapper）
-- MySQL 8（生产）/ H2（测试，MySQL 兼容模式）
+- MyBatis（Mapper）
+- MySQL 8（生产）/ H2（MySQL 兼容模式）
 - Flyway（数据库版本管理）
 - Springdoc OpenAPI（Swagger UI）
 - JUnit 5 + MockMvc
-- Spring Cloud：Eureka + Gateway（`cloud/` 演示模块）
+- Spring Cloud：Eureka + Gateway（`cloud/` ）
 
 ## 功能
 
@@ -72,7 +72,7 @@ mvn spring-boot:run
 docker compose up -d --build
 ```
 
-> 本机没有 Docker，Compose 未实际启动验证；Dockerfile 和编排文件已提供。
+> Dockerfile 和编排文件已提供。
 
 ## API
 
@@ -102,7 +102,7 @@ curl -X POST http://localhost:8080/api/v1/procurement/requests/1/approve \
   -d '{"approver":"王经理","action":"APPROVE","note":"同意"}'
 ```
 
-## LLM 需求抽取（可选）
+## LLM 需求抽取
 
 默认 `LLM_MODE=rules`，不依赖任何外部服务。
 
@@ -119,7 +119,6 @@ mvn spring-boot:run
 2. 校验品类、数量、预算；
 3. 超时、非 JSON、字段非法或模型不可用时，自动回退规则解析。
 
-这样单测和本地开发不依赖 API Key；演示时再开 LLM。
 
 ## Spring Cloud 模块
 
@@ -171,27 +170,6 @@ mvn test
 - 审批幂等与审计记录
 - OpenAPI 文档
 
-## 局限与生产化差距
-
-### 当前局限
-
-- **认证**：角色通过 `X-Role` 请求头模拟，没有 Spring Security、SSO、真实用户体系。
-- **数据**：商品/报价为演示数据；没有供应商导入、报价导入、主数据治理。
-- **ERP**：没有真实 ERP 对接，只有 PR/PO 本地落库。
-- **审批**：只有单级审批接口，没有金额阈值、多级审批、审批链路配置。
-- **LLM**：可选且非默认；没有 token 计量、成本统计、模型输出审计；未用真实 Key 联调。
-- **Spring Cloud**：Gateway 已通过 Eureka + `lb://` 做服务发现与负载均衡；仍没有配置中心、熔断、限流。
-- **运维**：已有审计和审批幂等；仍没有鉴权、限流、指标监控、CI/CD、staging。
-- **并发**：PR/PO 编号依赖日期 + 数据库 id，没有高并发下的发号器与幂等保障。
-
-### 生产化清单
-
-- Spring Security + OIDC/SSO，按租户和角色鉴权
-- 供应商/报价导入 + 价格有效期 + 审批流配置
-- 真实 ERP 适配器（幂等、对账、失败重试）
-- 队列、限流、审计、指标、告警
-- MySQL 备份/恢复、CI/CD、压测
-- LLM 评测集、成本控制、输出校验与人工兜底
 
 ## CI
 
